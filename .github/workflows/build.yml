@@ -1,0 +1,161 @@
+name: Build Kernel (Nothing 3a Pro / asteroids)
+
+# Manual trigger only. Produces a flashable AnyKernel3 zip as an artifact.
+on:
+  workflow_dispatch:
+    inputs:
+      lto:
+        description: "LTO mode (thin = fast+small, none = lowest RAM for the runner)"
+        type: choice
+        default: thin
+        options: [thin, none]
+      ksu_branch:
+        description: "KernelSU-Next branch"
+        default: next
+      make_release:
+        description: "Also create a GitHub Release with the zip"
+        type: boolean
+        default: false
+
+env:
+  # --- Target kernel ---------------------------------------------------------
+  KERNEL_REPO: https://github.com/NothingOSS/android_kernel_msm-6.1_nothing_sm7635
+  KERNEL_BRANCH: sm7635/b/mr          # NOS 4.1 asteroids, kernel 6.1.157
+  DEVICE: asteroids
+  QCOM_TARGET: pitti                  # SM7635 platform codename (define_pitti in BUILD.bazel)
+  DEFCONFIG_FRAGMENT: vendor/pitti_GKI.config
+  # --- Toolchain (matches build.config.constants of the branch) --------------
+  CLANG_VERSION: r487747c
+  # gitiles per-directory archive of exactly the clang Nothing built with.
+  # TODO verify: if this 404s, adjust the ref (main / android14-6.1-release).
+  CLANG_URL: https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r487747c.tar.gz
+  # --- Root / hiding stack ---------------------------------------------------
+  SUSFS_REPO: https://gitlab.com/simonpunk/susfs4ksu
+  SUSFS_BRANCH: gki-android14-6.1-dev   # SUSFS is versioned by GKI branch, not by .157
+  BBGUARD_REPO: https://github.com/vc-teahouse/Baseband-guard
+  ANYKERNEL_REPO: https://github.com/osm0sis/AnyKernel3
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout this repo (anykernel.sh + config fragment)
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            bc bison flex libssl-dev make gcc git zip curl \
+            python3 python-is-python3 libelf-dev cpio ccache \
+            build-essential zstd lz4
+
+      - name: Clone kernel source
+        run: |
+          git clone --depth=1 -b "$KERNEL_BRANCH" "$KERNEL_REPO" kernel
+          cd kernel
+          echo "Kernel version:"
+          make kernelversion || head -5 Makefile
+
+      - name: Fetch prebuilt AOSP clang ($CLANG_VERSION)
+        run: |
+          mkdir -p toolchain/clang
+          curl -LSs "$CLANG_URL" -o clang.tar.gz
+          tar -C toolchain/clang -xzf clang.tar.gz
+          echo "$GITHUB_WORKSPACE/toolchain/clang/bin" >> "$GITHUB_PATH"
+          toolchain/clang/bin/clang --version | head -1
+
+      # -----------------------------------------------------------------------
+      # KernelSU-Next  (rifsxd fork) - official setup script adds KernelSU-Next/
+      # and the drivers/kernelsu symlink, and patches Kconfig/Makefile.
+      # -----------------------------------------------------------------------
+      - name: Integrate KernelSU-Next
+        working-directory: kernel
+        run: |
+          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/${{ inputs.ksu_branch }}/kernel/setup.sh" | bash -s ${{ inputs.ksu_branch }}
+          echo "KSU_VERSION=$(cd KernelSU-Next && git describe --tags 2>/dev/null || echo unknown)" >> "$GITHUB_ENV"
+
+      # -----------------------------------------------------------------------
+      # SUSFS: copy kernel-side files + apply the GKI patch for android14-6.1.
+      # KernelSU-Next has built-in SUSFS support (CONFIG_KSU_SUSFS), so only the
+      # kernel-side susfs patch is applied here - no separate KernelSU patch.
+      # TODO verify: confirm KSU-Next needs no extra susfs patch on this branch;
+      # if root+susfs misbehaves, apply KSU-Next's own susfs patch too.
+      # -----------------------------------------------------------------------
+      - name: Apply SUSFS
+        working-directory: kernel
+        run: |
+          git clone --depth=1 -b "$SUSFS_BRANCH" "$SUSFS_REPO" ../susfs4ksu
+          cp ../susfs4ksu/kernel_patches/fs/* fs/
+          cp ../susfs4ksu/kernel_patches/include/linux/* include/linux/
+          PATCH=../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android14-6.1.patch
+          # Non-fatal: if the tree already carries hunks, --forward keeps going.
+          patch -p1 --forward < "$PATCH" || echo "::warning::SUSFS patch had rejects - check *.rej (TODO)"
+
+      # -----------------------------------------------------------------------
+      # Baseband-guard (LSM). Its setup.sh drops security/baseband_guard/ into
+      # the tree and wires it into the Kconfig/Makefile.
+      # TODO verify: confirm the script path/name and the resulting Kconfig sym.
+      # -----------------------------------------------------------------------
+      - name: Integrate Baseband-guard
+        working-directory: kernel
+        run: |
+          git clone --depth=1 "$BBGUARD_REPO" ../Baseband-guard
+          if [ -f ../Baseband-guard/setup.sh ]; then
+            bash ../Baseband-guard/setup.sh || echo "::warning::Baseband-guard setup.sh failed (TODO)"
+          else
+            echo "::warning::Baseband-guard setup.sh not found - integrate manually (TODO)"
+          fi
+
+      - name: Build defconfig (gki + pitti + add-ons)
+        working-directory: kernel
+        run: |
+          MERGE=scripts/kconfig/merge_config.sh
+          bash "$MERGE" -m -O out \
+            arch/arm64/configs/gki_defconfig \
+            "arch/arm64/configs/${DEFCONFIG_FRAGMENT}" \
+            "$GITHUB_WORKSPACE/configs/nothing_asteroids_addons.config"
+          if [ "${{ inputs.lto }}" = "none" ]; then
+            ./scripts/config --file out/.config \
+              -d LTO_CLANG_THIN -d LTO_CLANG_FULL -e LTO_NONE
+          fi
+          make O=out ARCH=arm64 LLVM=1 olddefconfig
+          grep -E "CONFIG_KSU|CONFIG_KSU_SUSFS|CONFIG_TCP_CONG_BBR|CONFIG_LTO_CLANG" out/.config || true
+
+      - name: Build Image
+        working-directory: kernel
+        run: |
+          make -j"$(nproc)" O=out ARCH=arm64 LLVM=1 \
+            CROSS_COMPILE=aarch64-linux-gnu- Image
+          ls -lh out/arch/arm64/boot/
+
+      # -----------------------------------------------------------------------
+      # Package with AnyKernel3 (GKI: flash Image into boot partition).
+      # -----------------------------------------------------------------------
+      - name: Package AnyKernel3 zip
+        run: |
+          git clone --depth=1 "$ANYKERNEL_REPO" ak3
+          rm -f ak3/anykernel.sh
+          cp anykernel3/anykernel.sh ak3/anykernel.sh
+          cp kernel/out/arch/arm64/boot/Image ak3/Image
+          rm -rf ak3/.git ak3/.github
+          NAME="Nothing3aPro-asteroids-KSUNext-SUSFS-$(date +%Y%m%d-%H%M)"
+          echo "ZIP_NAME=$NAME" >> "$GITHUB_ENV"
+          (cd ak3 && zip -r9 "../${NAME}.zip" . -x '*.git*')
+          ls -lh "${NAME}.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ZIP_NAME }}
+          path: ${{ env.ZIP_NAME }}.zip
+
+      - name: Create Release
+        if: ${{ inputs.make_release }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.ZIP_NAME }}
+          files: ${{ env.ZIP_NAME }}.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
