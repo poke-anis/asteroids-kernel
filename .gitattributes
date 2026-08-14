@@ -1,0 +1,6 @@
+# Shell scripts, YAML and kernel config fragments must stay LF (CRLF breaks
+# AnyKernel3 flashing and CI shell parsing).
+*.sh    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.config text eol=lf
