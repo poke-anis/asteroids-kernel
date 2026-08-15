@@ -5,10 +5,10 @@ on:
   workflow_dispatch:
     inputs:
       lto:
-        description: "LTO mode (thin = fast+small, none = lowest RAM for the runner)"
+        description: "LTO mode (none = matches stock, required for stock-module compat; thin only if rebuilding modules)"
         type: choice
-        default: thin
-        options: [thin, none]
+        default: none
+        options: [none, thin]
       ksu_branch:
         description: "KernelSU-Next branch"
         default: next
@@ -116,10 +116,13 @@ jobs:
             arch/arm64/configs/gki_defconfig \
             "arch/arm64/configs/${DEFCONFIG_FRAGMENT}" \
             "$GITHUB_WORKSPACE/configs/nothing_asteroids_addons.config"
-          if [ "${{ inputs.lto }}" = "none" ]; then
-            ./scripts/config --file out/.config \
-              -d LTO_CLANG_THIN -d LTO_CLANG_FULL -e LTO_NONE
-          fi
+          # LTO must match the stock kernel (LTO_NONE) so the reused stock
+          # vendor_dlkm modules stay CFI/ABI-compatible; thin only if you also
+          # rebuild the vendor modules. See configs/nothing_asteroids_addons.config.
+          case "${{ inputs.lto }}" in
+            none) ./scripts/config --file out/.config -d LTO_CLANG_THIN -d LTO_CLANG_FULL -e LTO_NONE ;;
+            thin) ./scripts/config --file out/.config -e LTO_CLANG_THIN -d LTO_CLANG_FULL -d LTO_NONE ;;
+          esac
           # Baseband-guard's Makefile aborts unless its LSM id ("baseband_guard")
           # is registered in the CONFIG_LSM stacking list. Its setup.sh doesn't do
           # this, so append it here (after olddefconfig fills in the base list).

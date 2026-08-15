@@ -14,7 +14,9 @@ tree is vendored here, only the build pipeline and device packaging.
 - **Baseband-guard** (vc-teahouse) — lightweight LSM blocking writes to critical partitions/nodes.
 - **BBR** congestion control + `fq` qdisc (network tweaks).
 - `TMPFS_XATTR` / `TMPFS_POSIX_ACL` (Mountify support).
-- **Thin LTO** by default (switchable to `none` for low-RAM runners).
+- **LTO: none by default** — the stock kernel ships `LTO_NONE` and we reuse the
+  stock vendor modules; Thin/Full LTO changes CFI/codegen and makes those modules
+  fault at runtime (bootloop). Only use `thin` if you also rebuild the modules.
 - Packaged as a flashable **AnyKernel3** zip (boot-partition GKI flash).
 
 ## Kernel source

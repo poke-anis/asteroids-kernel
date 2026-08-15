@@ -6,7 +6,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 ROOT=$(pwd)
-LTO="${1:-thin}"
+LTO="${1:-none}"   # default none: matches stock kernel so stock vendor modules stay CFI/ABI-compatible
 
 # --- same knobs as the workflow ----------------------------------------------
 KERNEL_REPO=https://github.com/NothingOSS/android_kernel_msm-6.1_nothing_sm7635
@@ -70,9 +70,10 @@ bash scripts/kconfig/merge_config.sh -m -O out \
   arch/arm64/configs/gki_defconfig \
   "arch/arm64/configs/${DEFCONFIG_FRAGMENT}" \
   "$ROOT/configs/nothing_asteroids_addons.config"
-if [ "$LTO" = "none" ]; then
-  ./scripts/config --file out/.config -d LTO_CLANG_THIN -d LTO_CLANG_FULL -e LTO_NONE
-fi
+case "$LTO" in
+  none) ./scripts/config --file out/.config -d LTO_CLANG_THIN -d LTO_CLANG_FULL -e LTO_NONE ;;
+  thin) ./scripts/config --file out/.config -e LTO_CLANG_THIN -d LTO_CLANG_FULL -d LTO_NONE ;;
+esac
 # Bisect toggles (config-only; works on the cached tree). Default on.
 #   BBG=0   -> drop baseband_guard LSM         (prime bootloop suspect)
 #   SUSFS=0 -> drop SUSFS hooks
