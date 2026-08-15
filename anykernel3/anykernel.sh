@@ -26,14 +26,16 @@ supported.vendorpatchlevels=
 
 ### AnyKernel install
 ## boot shell variables
-# Name (not a hardcoded path) so AK3 searches every known by-name root, and
-# is_slot_device=auto so AK3 detects the A/B slot itself instead of depending on
-# a slot_suffix prop that some flashers (e.g. Kernel Flasher) don't expose.
-block=boot
-is_slot_device=auto
-ramdisk_compression=auto
-patch_vbmeta_flag=auto
-no_magisk_check=1
+# MUST be UPPERCASE: current AnyKernel3 (ak3-core >= ~2026-08) reads BLOCK /
+# IS_SLOT_DEVICE directly and dropped the lowercase->uppercase shim older cores
+# had. Lowercase here leaves BLOCK empty -> "Unable to determine partition".
+# BLOCK=boot (name, not a path) so AK3 searches every by-name root itself, and
+# IS_SLOT_DEVICE=auto so it detects the A/B slot suffix on its own.
+BLOCK=boot;
+IS_SLOT_DEVICE=auto;
+RAMDISK_COMPRESSION=auto;
+PATCH_VBMETA_FLAG=auto;
+NO_MAGISK_CHECK=1;
 
 # import functions/variables and setup patching - see AnyKernel3 README
 . tools/ak3-core.sh
