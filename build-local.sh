@@ -77,7 +77,7 @@ esac
 # Bisect toggles (config-only; works on the cached tree). Default on.
 #   BBG=0   -> drop baseband_guard LSM         (prime bootloop suspect)
 #   SUSFS=0 -> drop SUSFS hooks
-[ "${KSU:-1}" = 1 ]   || ./scripts/config --file out/.config -d KSU KSU_MANUAL_HOOK KSU_SUSFS
+[ "${KSU:-1}" = 1 ]   || ./scripts/config --file out/.config -d KSU -d KSU_MANUAL_HOOK -d KSU_SUSFS
 [ "${BBG:-1}" = 1 ]   || ./scripts/config --file out/.config -d BBG
 [ "${SUSFS:-1}" = 1 ] || ./scripts/config --file out/.config -d KSU_SUSFS
 make O=out ARCH=arm64 LLVM=1 olddefconfig
