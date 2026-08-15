@@ -47,7 +47,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             bc bison flex libssl-dev make gcc git zip curl \
             python3 python-is-python3 libelf-dev cpio ccache \
-            build-essential zstd lz4 dwarves   # dwarves = pahole, needed for CONFIG_DEBUG_INFO_BTF
+            build-essential zstd lz4 dwarves unzip   # dwarves = pahole, for CONFIG_DEBUG_INFO_BTF
 
       - name: Clone kernel source
         run: |
@@ -147,6 +147,18 @@ jobs:
       - name: Package AnyKernel3 zip
         run: |
           git clone --depth=1 "$ANYKERNEL_REPO" ak3
+          # AnyKernel3 ships 32-bit ARM tools; the 3a Pro (SM7635, Android 16) has
+          # no 32-bit userspace, so busybox/magiskboot abort ("busybox setup
+          # failed"). Swap in the official arm64 binaries from Magisk (run on every
+          # modern arm64 device regardless of 32-bit support).
+          MAGISK_URL=$(curl -fsSL https://api.github.com/repos/topjohnwu/Magisk/releases/latest | grep -o 'https://[^"]*\.apk' | head -1)
+          curl -fLSs "$MAGISK_URL" -o magisk.apk
+          unzip -o -q magisk.apk 'lib/arm64-v8a/*' -d magisk_x
+          cp magisk_x/lib/arm64-v8a/libmagiskboot.so   ak3/tools/magiskboot
+          cp magisk_x/lib/arm64-v8a/libbusybox.so      ak3/tools/busybox
+          cp magisk_x/lib/arm64-v8a/libmagiskpolicy.so ak3/tools/magiskpolicy 2>/dev/null || true
+          chmod +x ak3/tools/magiskboot ak3/tools/busybox ak3/tools/magiskpolicy
+          file ak3/tools/busybox
           rm -f ak3/anykernel.sh
           cp anykernel3/anykernel.sh ak3/anykernel.sh
           cp kernel/out/arch/arm64/boot/Image ak3/Image

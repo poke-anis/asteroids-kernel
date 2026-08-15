@@ -27,7 +27,7 @@ mkdir -p "$W"
 sudo apt-get update -qq
 sudo apt-get install -y -qq --no-install-recommends \
   bc bison flex libssl-dev make gcc git zip curl python3 python-is-python3 \
-  libelf-dev cpio ccache build-essential zstd lz4 file dwarves
+  libelf-dev cpio ccache build-essential zstd lz4 file dwarves unzip
 export PATH="/usr/lib/ccache:$PATH" CCACHE_DIR="${CCACHE_DIR:-$HOME/.ccache}"
 
 # --- toolchain (cached) ------------------------------------------------------
@@ -81,6 +81,17 @@ ls -lh out/arch/arm64/boot/Image
 # --- package -----------------------------------------------------------------
 AK="$W/ak3"
 [ -d "$AK" ] || git clone --depth=1 "$ANYKERNEL_REPO" "$AK"
+# Swap AnyKernel3's 32-bit tools for arm64 ones (the 3a Pro has no 32-bit
+# userspace -> "busybox setup failed"). Official binaries from Magisk.
+if ! file "$AK/tools/busybox" | grep -q aarch64; then
+  MAGISK_URL=$(curl -fsSL https://api.github.com/repos/topjohnwu/Magisk/releases/latest | grep -o 'https://[^"]*\.apk' | head -1)
+  curl -fLSs "$MAGISK_URL" -o "$W/magisk.apk"
+  unzip -o -q "$W/magisk.apk" 'lib/arm64-v8a/*' -d "$W/magisk_x"
+  cp "$W"/magisk_x/lib/arm64-v8a/libmagiskboot.so   "$AK/tools/magiskboot"
+  cp "$W"/magisk_x/lib/arm64-v8a/libbusybox.so      "$AK/tools/busybox"
+  cp "$W"/magisk_x/lib/arm64-v8a/libmagiskpolicy.so "$AK/tools/magiskpolicy" 2>/dev/null || true
+  chmod +x "$AK"/tools/magiskboot "$AK"/tools/busybox "$AK"/tools/magiskpolicy
+fi
 cp "$ROOT/anykernel3/anykernel.sh" "$AK/anykernel.sh"
 cp out/arch/arm64/boot/Image "$AK/Image"
 NAME="Nothing3aPro-asteroids-KSUNext-SUSFS-$(date +%Y%m%d-%H%M)"
