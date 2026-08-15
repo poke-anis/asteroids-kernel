@@ -47,14 +47,18 @@ if [ ! -d "$K" ]; then
   cd "$K"
   # KernelSU-Next
   curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/${KSU_BRANCH}/kernel/setup.sh" | bash -s "$KSU_BRANCH"
-  # SUSFS
-  git clone --depth=1 -b "$SUSFS_BRANCH" "$SUSFS_REPO" "$W/susfs4ksu"
-  cp "$W"/susfs4ksu/kernel_patches/fs/* fs/
-  cp "$W"/susfs4ksu/kernel_patches/include/linux/* include/linux/
-  patch -p1 --forward < "$W/susfs4ksu/kernel_patches/50_add_susfs_in_gki-android14-6.1.patch" || echo "WARN: susfs patch rejects"
-  # Baseband-guard
-  git clone --depth=1 "$BBGUARD_REPO" "$W/Baseband-guard"
-  [ -f "$W/Baseband-guard/setup.sh" ] && bash "$W/Baseband-guard/setup.sh" || echo "WARN: bbg setup"
+  # SUSFS (skipped when SUSFS=0 so CLEAN=1 SUSFS=0 gives a patch-free tree)
+  if [ "${SUSFS:-1}" = 1 ]; then
+    git clone --depth=1 -b "$SUSFS_BRANCH" "$SUSFS_REPO" "$W/susfs4ksu"
+    cp "$W"/susfs4ksu/kernel_patches/fs/* fs/
+    cp "$W"/susfs4ksu/kernel_patches/include/linux/* include/linux/
+    patch -p1 --forward < "$W/susfs4ksu/kernel_patches/50_add_susfs_in_gki-android14-6.1.patch" || echo "WARN: susfs patch rejects"
+  fi
+  # Baseband-guard (skipped when BBG=0)
+  if [ "${BBG:-1}" = 1 ]; then
+    git clone --depth=1 "$BBGUARD_REPO" "$W/Baseband-guard"
+    [ -f "$W/Baseband-guard/setup.sh" ] && bash "$W/Baseband-guard/setup.sh" || echo "WARN: bbg setup"
+  fi
 fi
 cd "$K"
 
