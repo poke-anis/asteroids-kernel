@@ -45,8 +45,10 @@ K="$W/kernel"
 if [ ! -d "$K" ]; then
   git clone --depth=1 -b "$KERNEL_BRANCH" "$KERNEL_REPO" "$K"
   cd "$K"
-  # KernelSU-Next
-  curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/${KSU_BRANCH}/kernel/setup.sh" | bash -s "$KSU_BRANCH"
+  # KernelSU-Next (skipped when KSU=0 -> plain stock-config baseline)
+  if [ "${KSU:-1}" = 1 ]; then
+    curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/${KSU_BRANCH}/kernel/setup.sh" | bash -s "$KSU_BRANCH"
+  fi
   # SUSFS (skipped when SUSFS=0 so CLEAN=1 SUSFS=0 gives a patch-free tree)
   if [ "${SUSFS:-1}" = 1 ]; then
     git clone --depth=1 -b "$SUSFS_BRANCH" "$SUSFS_REPO" "$W/susfs4ksu"
@@ -74,6 +76,7 @@ fi
 # Bisect toggles (config-only; works on the cached tree). Default on.
 #   BBG=0   -> drop baseband_guard LSM         (prime bootloop suspect)
 #   SUSFS=0 -> drop SUSFS hooks
+[ "${KSU:-1}" = 1 ]   || ./scripts/config --file out/.config -d KSU KSU_MANUAL_HOOK KSU_SUSFS
 [ "${BBG:-1}" = 1 ]   || ./scripts/config --file out/.config -d BBG
 [ "${SUSFS:-1}" = 1 ] || ./scripts/config --file out/.config -d KSU_SUSFS
 make O=out ARCH=arm64 LLVM=1 olddefconfig
