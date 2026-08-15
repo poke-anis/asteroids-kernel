@@ -27,8 +27,7 @@ env:
   # --- Toolchain (matches build.config.constants of the branch) --------------
   CLANG_VERSION: r487747c
   # gitiles per-directory archive of exactly the clang Nothing built with.
-  # TODO verify: if this 404s, adjust the ref (main / android14-6.1-release).
-  CLANG_URL: https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r487747c.tar.gz
+  CLANG_URL: https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/android14-release/clang-r487747c.tar.gz
   # --- Root / hiding stack ---------------------------------------------------
   SUSFS_REPO: https://gitlab.com/simonpunk/susfs4ksu
   SUSFS_BRANCH: gki-android14-6.1-dev   # SUSFS is versioned by GKI branch, not by .157
@@ -60,7 +59,8 @@ jobs:
       - name: Fetch prebuilt AOSP clang ($CLANG_VERSION)
         run: |
           mkdir -p toolchain/clang
-          curl -LSs "$CLANG_URL" -o clang.tar.gz
+          curl -fLSs "$CLANG_URL" -o clang.tar.gz   # -f: fail on HTTP error instead of saving the error page
+          file clang.tar.gz | grep -q gzip || { echo "::error::CLANG_URL did not return a gzip (check the ref)"; exit 1; }
           tar -C toolchain/clang -xzf clang.tar.gz
           echo "$GITHUB_WORKSPACE/toolchain/clang/bin" >> "$GITHUB_PATH"
           toolchain/clang/bin/clang --version | head -1

@@ -70,7 +70,6 @@ These weren't verifiable without a real build — check before trusting a releas
 - **Baseband-guard** — confirm `setup.sh` path/name and the real Kconfig symbol (assumed `CONFIG_BBG`).
 - **BBRv3** — only BBRv1 (`CONFIG_TCP_CONG_BBR`) is a Kconfig option in `android14-6.1`.
   BBRv3 requires patching `net/ipv4/tcp_bbr.c` — not included.
-- **Clang archive ref** — if `CLANG_URL` 404s, adjust the gitiles ref (`main` / `android14-6.1-release`).
 - **AnyKernel device names** — set `do.devicecheck=1` + exact `ro.product.device` before public release.
 - **Droidspaces-OSS** — evaluated as optional; not integrated.
 
