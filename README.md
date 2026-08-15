@@ -26,7 +26,7 @@ tree is vendored here, only the build pipeline and device packaging.
 | Repo | [`NothingOSS/android_kernel_msm-6.1_nothing_sm7635`](https://github.com/NothingOSS/android_kernel_msm-6.1_nothing_sm7635) |
 | Branch | `sm7635/b/mr` |
 | Version | **6.1.157** (`android14-6.1-keystone-qcom-release.6.1.157+`, NOS 4.1 Asteroids) |
-| Target | `pitti` — config `gki_defconfig` + `arch/arm64/configs/vendor/pitti_GKI.config` |
+| Config | **pure `gki_defconfig`** (+ our add-on fragment). The flashable `boot` Image is generic GKI; `vendor/pitti_GKI.config` is for the vendor-module build and must NOT be merged in — doing so bakes Qualcomm drivers into the Image that conflict with the stock `vendor_dlkm` modules and bootloops. |
 | Toolchain | AOSP clang `r487747c`, `LLVM=1` (matches `build.config.constants`) |
 
 ## Build

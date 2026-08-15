@@ -66,9 +66,13 @@ cd "$K"
 
 # --- defconfig ---------------------------------------------------------------
 mkdir -p out
+# PURE gki_defconfig — do NOT merge vendor/pitti_GKI.config. That fragment bakes
+# Qualcomm vendor drivers (DMABUF heaps, minidump, RPMCC, gunyah, QTEE...) into
+# the Image; the stock boot kernel is plain GKI and those drivers live in the
+# stock vendor_dlkm modules. Baking them in double-registers against those
+# modules -> HALs fail -> bootloop. The flashable GKI Image must stay generic.
 bash scripts/kconfig/merge_config.sh -m -O out \
   arch/arm64/configs/gki_defconfig \
-  "arch/arm64/configs/${DEFCONFIG_FRAGMENT}" \
   "$ROOT/configs/nothing_asteroids_addons.config"
 case "$LTO" in
   none) ./scripts/config --file out/.config -d LTO_CLANG_THIN -d LTO_CLANG_FULL -e LTO_NONE ;;

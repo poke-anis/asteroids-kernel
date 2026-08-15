@@ -23,7 +23,7 @@ env:
   KERNEL_BRANCH: sm7635/b/mr          # NOS 4.1 asteroids, kernel 6.1.157
   DEVICE: asteroids
   QCOM_TARGET: pitti                  # SM7635 platform codename (define_pitti in BUILD.bazel)
-  DEFCONFIG_FRAGMENT: vendor/pitti_GKI.config
+  # NB: vendor/pitti_GKI.config is intentionally NOT merged — see defconfig step.
   # --- Toolchain (matches build.config.constants of the branch) --------------
   CLANG_VERSION: r487747c
   # gitiles per-directory archive of exactly the clang Nothing built with.
@@ -111,10 +111,14 @@ jobs:
         working-directory: kernel
         run: |
           mkdir -p out   # merge_config.sh -O requires the output dir to exist
+          # PURE gki_defconfig — do NOT merge vendor/pitti_GKI.config. That
+          # fragment bakes Qualcomm vendor drivers into the Image; the stock boot
+          # kernel is plain GKI and those drivers ship in the stock vendor_dlkm
+          # modules. Baking them in double-registers against those modules ->
+          # HALs fail -> bootloop. The flashable GKI Image must stay generic.
           MERGE=scripts/kconfig/merge_config.sh
           bash "$MERGE" -m -O out \
             arch/arm64/configs/gki_defconfig \
-            "arch/arm64/configs/${DEFCONFIG_FRAGMENT}" \
             "$GITHUB_WORKSPACE/configs/nothing_asteroids_addons.config"
           # LTO must match the stock kernel (LTO_NONE) so the reused stock
           # vendor_dlkm modules stay CFI/ABI-compatible; thin only if you also
