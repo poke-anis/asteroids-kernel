@@ -110,6 +110,7 @@ jobs:
       - name: Build defconfig (gki + pitti + add-ons)
         working-directory: kernel
         run: |
+          mkdir -p out   # merge_config.sh -O requires the output dir to exist
           MERGE=scripts/kconfig/merge_config.sh
           bash "$MERGE" -m -O out \
             arch/arm64/configs/gki_defconfig \
