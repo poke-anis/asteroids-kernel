@@ -47,7 +47,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             bc bison flex libssl-dev make gcc git zip curl \
             python3 python-is-python3 libelf-dev cpio ccache \
-            build-essential zstd lz4
+            build-essential zstd lz4 dwarves   # dwarves = pahole, needed for CONFIG_DEBUG_INFO_BTF
 
       - name: Clone kernel source
         run: |

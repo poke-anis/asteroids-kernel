@@ -27,7 +27,7 @@ mkdir -p "$W"
 sudo apt-get update -qq
 sudo apt-get install -y -qq --no-install-recommends \
   bc bison flex libssl-dev make gcc git zip curl python3 python-is-python3 \
-  libelf-dev cpio ccache build-essential zstd lz4 file
+  libelf-dev cpio ccache build-essential zstd lz4 file dwarves
 export PATH="/usr/lib/ccache:$PATH" CCACHE_DIR="${CCACHE_DIR:-$HOME/.ccache}"
 
 # --- toolchain (cached) ------------------------------------------------------
