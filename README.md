@@ -51,9 +51,20 @@ The pipeline ([`.github/workflows/build.yml`](.github/workflows/build.yml)):
 
 ## Flashing
 
-1. Back up your current `boot` partition first.
-2. Flash the zip with **KernelSU-Next manager**, **Kernel Flasher**, or a custom recovery.
-3. Reboot, open the **KernelSU-Next** app to confirm root, then install a SUSFS module/config as needed.
+Prerequisites: unlocked bootloader, and you are already rooted (needed to run a
+kernel flasher). Back up your current `boot` partition first.
+
+**Use the maintained [fatalcoder524 fork of Kernel Flasher](https://github.com/fatalcoder524/KernelFlasher/releases/latest)** —
+*not* the original (capntrips) Kernel Flasher, and not the KernelSU-Next manager's
+built-in flasher. On newer A/B devices like the 3a Pro those older AnyKernel3
+runners fail partition detection with **"Unable to determine partition. Aborting..."**;
+the fork fixes exactly that.
+
+1. Install `KernelFlasher_x.y.z.apk` from the fork above.
+2. Flash the AnyKernel3 zip **to the active slot** with it.
+3. Install the **KernelSU-Next Manager** app (match the KSU-Next version this kernel
+   was built with — check the build log's `KSU_VERSION`), open it to confirm root.
+4. Configure SUSFS via a module as needed.
 
 > Only for the 3a Pro (`asteroids`). Device-check is **off** by default in `anykernel.sh`
 > (see the TODO there) — double-check you're flashing the right device.
