@@ -29,8 +29,11 @@ boot_attributes() {
 seclabel=u:object_r:boot_block_device:s0
 }
 
-## GKI: flash the kernel Image into the boot partition
-block=boot;
+## GKI: flash the kernel Image into the boot partition.
+## Explicit by-name path (Qualcomm/UFS). With is_slot_device=1, AnyKernel3
+## appends the active slot suffix (_a/_b) automatically.
+## If your device exposes it elsewhere, swap for: /dev/block/by-name/boot
+block=/dev/block/bootdevice/by-name/boot;
 is_slot_device=1;
 ramdisk_compression=auto;
 patch_vbmeta_flag=auto;
