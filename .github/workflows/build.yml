@@ -120,7 +120,18 @@ jobs:
             ./scripts/config --file out/.config \
               -d LTO_CLANG_THIN -d LTO_CLANG_FULL -e LTO_NONE
           fi
+          # Baseband-guard's Makefile aborts unless its LSM id ("baseband_guard")
+          # is registered in the CONFIG_LSM stacking list. Its setup.sh doesn't do
+          # this, so append it here (after olddefconfig fills in the base list).
           make O=out ARCH=arm64 LLVM=1 olddefconfig
+          CUR_LSM=$(sed -n 's/^CONFIG_LSM="\(.*\)"$/\1/p' out/.config)
+          if [ -n "$CUR_LSM" ] && ! echo "$CUR_LSM" | grep -qw baseband_guard; then
+            ./scripts/config --file out/.config --set-str LSM "${CUR_LSM},baseband_guard"
+          elif [ -z "$CUR_LSM" ]; then
+            echo "::warning::CONFIG_LSM empty - baseband_guard not appended (TODO verify)"
+          fi
+          make O=out ARCH=arm64 LLVM=1 olddefconfig
+          echo "CONFIG_LSM => $(sed -n 's/^CONFIG_LSM=//p' out/.config)"
           grep -E "CONFIG_KSU|CONFIG_KSU_SUSFS|CONFIG_TCP_CONG_BBR|CONFIG_LTO_CLANG" out/.config || true
 
       - name: Build Image
