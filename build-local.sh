@@ -67,12 +67,18 @@ bash scripts/kconfig/merge_config.sh -m -O out \
 if [ "$LTO" = "none" ]; then
   ./scripts/config --file out/.config -d LTO_CLANG_THIN -d LTO_CLANG_FULL -e LTO_NONE
 fi
+# Bisect toggles (config-only; works on the cached tree). Default on.
+#   BBG=0   -> drop baseband_guard LSM         (prime bootloop suspect)
+#   SUSFS=0 -> drop SUSFS hooks
+[ "${BBG:-1}" = 1 ]   || ./scripts/config --file out/.config -d BBG
+[ "${SUSFS:-1}" = 1 ] || ./scripts/config --file out/.config -d KSU_SUSFS
 make O=out ARCH=arm64 LLVM=1 olddefconfig
 CUR_LSM=$(sed -n 's/^CONFIG_LSM="\(.*\)"$/\1/p' out/.config)
-if [ -n "$CUR_LSM" ] && ! echo "$CUR_LSM" | grep -qw baseband_guard; then
+if [ "${BBG:-1}" = 1 ] && [ -n "$CUR_LSM" ] && ! echo "$CUR_LSM" | grep -qw baseband_guard; then
   ./scripts/config --file out/.config --set-str LSM "${CUR_LSM},baseband_guard"
 fi
 make O=out ARCH=arm64 LLVM=1 olddefconfig
+echo "toggles: BBG=${BBG:-1} SUSFS=${SUSFS:-1} | $(grep -E '^CONFIG_(BBG|KSU_SUSFS)=' out/.config | tr '\n' ' ')"
 
 # --- build -------------------------------------------------------------------
 make -j"$(nproc)" O=out ARCH=arm64 LLVM=1 CC="ccache clang" CROSS_COMPILE=aarch64-linux-gnu- Image
